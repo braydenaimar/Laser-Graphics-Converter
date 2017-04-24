@@ -1,3 +1,15 @@
+# Ignore the node_modules folder
+node_modules/
+
+npm-debug.log
+
+.todo
+todo-notes.txt
+
+# Linter Configuration Files
+.eslintrc.json
+.jshintrc
+
 # Windows image file caches
 Thumbs.db
 ehthumbs.db
