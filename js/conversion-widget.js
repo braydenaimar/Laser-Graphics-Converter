@@ -18,19 +18,20 @@
 /* eslint-disable func-names */
 /* eslint-disable no-param-reassign */
 /* eslint-disable no-continue */
+/* eslint-disable no-restricted-syntax */
 
 define([ 'jquery' ], $ => ({
 
 	// id - must match the widget name (the name given to this file).
 	id: 'conversion-widget',
 	// name - The moniker that appears in the top left-hand corner ow the app.
-	name: 'Converter',
+	name: 'File Converter',
 	// shortName - The moniker that appears on the widget's button on the right-hand side of the app.
-	shortName: null,
+	shortName: 'Converter',
 	// btnTheme - The theme used for the widget's button on the right-hand side of the app.
 	btnTheme: 'default',
 	// icon - The icon that appears on the widget's button on the right-hand side of the app.
-	icon: 'fa fa-cogs',
+	icon: 'fa fa-connectdevelop',
 	desc: 'The conversion widget converts GCode files into laser graphics files.',
 	publish: {},
 	subscribe: {},
@@ -44,6 +45,9 @@ define([ 'jquery' ], $ => ({
 	widgetDom: [ 'conversion-panel' ],
 	widgetVisible: false,
 
+	lastOpenFileDialogTime: 0,
+	lastParseFileTime: 0,
+
 	initBody() {
 
 		console.group(`${this.name}.initBody()`);
@@ -53,40 +57,17 @@ define([ 'jquery' ], $ => ({
 
 		publish('/main/widget-loaded', this.id);
 
-		const openOptions = {
-			title: 'Open a File',
-			filters: [
-				{ name: 'Images', extensions: [ 'jpg', 'png', 'gif' ] }
-			],
-			properties: [ 'openFile' ]
-		};
+		// Open File Button.
+		$(`#${this.id} .conversion-panel .panel-body`).on('click', 'span.btn', (evt) => {
 
-		ipc.send('open-dialog', openOptions);
+			const evtData = $(evt.currentTarget).attr('evt-data');
 
-		ipc.on('opened-file', (event, path) => {
-
-			if (!path) path = 'No open path';
-
-			console.log(`Open path selected: ${path}`);
+			if (evtData === 'open-file') this.fileOpenDialog();
+			else if (evtData === 'save-file') this.fileSaveDialog();
 
 		});
 
-		const saveOptions = {
-			title: 'Save an Image',
-			filters: [
-				{ name: 'Images', extensions: [ 'jpg', 'png', 'gif' ] }
-			]
-		};
-
-		ipc.send('save-dialog', saveOptions);
-
-		ipc.on('saved-file', (event, path) => {
-
-			if (!path) path = 'No save path';
-
-			console.log(`Save path selected: ${path}`);
-
-		});
+		subscribe('keyboard-shortcut', this, this.keyboardShortcuts);
 
 		return true;
 
@@ -103,7 +84,6 @@ define([ 'jquery' ], $ => ({
 
 		$.each(this.widgetDom, (panelIndex, panel) => {
 
-			// console.log("  panelIndex:", panelIndex, "\n  panel:", panel);
 			marginSpacing += Number($(`#${that.id} .${panel}`).css('margin-top').replace(/px/g, ''));
 
 			if (panelIndex === that.widgetDom.length - 1) {
@@ -142,7 +122,311 @@ define([ 'jquery' ], $ => ({
 
 		return true;
 
+	},
+	keyboardShortcuts(data) {
+
+		// If this widget is not visible, do not apply any keyboard shortcuts and abort this method.
+		if (!this.widgetVisible) return false;
+
+		if (data === 'ctrl+o') this.fileOpenDialog();
+		else if (data === 'ctrl+s') this.fileSaveDialog();
+
+		return true;
+
+	},
+
+	/**
+	 *  Launches the system's file explorer for the user to select a file to open.
+	 *
+	 *  @method openFileDialog
+	 *
+	 *  @return {string}       the global file path selected by user
+	 */
+	fileOpenDialog() {
+
+		if (this.lastOpenFileDialogTime && Date.now() - this.lastOpenFileDialogTime < 1000) return;
+		this.lastOpenFileDialogTime = Date.now();
+
+		const openOptions = {
+			title: 'Open a File',
+			filters: [
+				{ name: 'GCode', extensions: [ 'nc' ] }
+			],
+			properties: [ 'openFile' ]
+		};
+
+		console.log('open dialog');
+
+		// Launch the file explorer dialog.
+		ipc.send('open-dialog', openOptions);
+
+		// Callback for file explorer dialog.
+		ipc.on('opened-file', (event, path) => {
+
+			console.log(`Open path selected: ${path}`);
+
+			// If a file was selected, parse the selected file.
+			path && this.openFile(path);
+
+		});
+
+	},
+
+	openFile(filePath) {
+
+		if (this.lastParseFileTime && Date.now() - this.lastParseFileTime < 1000) return;
+		this.lastParseFileTime = Date.now();
+
+		console.log(typeof filePath);
+		console.log(filePath);
+
+		// Check that a valid file path was passed.
+		if (!filePath) throw new Error('Invalid file path.');
+
+		$(`#${this.id} .file-data.file-name`).text(filePath[0]);
+
+		// Asynchronous file read
+		fs.readFile(filePath[0], (err, data) => {
+
+			if (err) return console.error(err);
+
+			const lineData = data.toString().split('\n');
+
+			$(`#${this.id} .file-data.file-lines`).text(`${lineData.length} lines`);
+
+			console.groupCollapsed('File Data');
+			console.log(lineData);
+			console.groupEnd();
+
+			return this.parseFile(lineData);
+
+		});
+
+	},
+
+	parseFile(data) {
+
+		let gcodeData = {
+			x: [],
+			y: [],
+			z: []
+		};
+
+		for (let i = 0; i < data.length - 10; i++) {
+
+			let line = data[i];
+
+			// console.log(`Line: '${line}'`);
+
+			if (/[xyz][-0-9.]+/i.test(line)) {
+
+				gcodeData.x.push(0);
+				gcodeData.y.push(0);
+				gcodeData.z.push(0);
+
+				if (gcodeData.x.length >= 2) {
+
+					for (let key in gcodeData) {
+
+						if ({}.hasOwnProperty.call(gcodeData, key)) {
+
+							let a = gcodeData[key].length - 1;
+							let b = gcodeData[key].length - 2;
+
+							gcodeData[key][a] = gcodeData[key][b];
+
+						}
+
+					}
+
+				}
+
+				let matchData = line.match(/[xyz][-0-9.]+/gi);
+				// console.log(matchData);
+
+				for (let j = 0; j < matchData.length; j++) {
+
+					let axis = matchData[j].substr(0, 1).toLowerCase();
+					let value = Number(matchData[j].substr(1));
+
+					// console.log(`  ${axis.toUpperCase()} ${value}`);
+
+					if (axis === 'z' && value > 0 && !gcodeData.z[0]) {
+						for (let a = 0; a < gcodeData.z.length && !gcodeData.z[a]; a++) {
+
+							gcodeData.z[a] = value;
+
+						}
+
+					}
+
+					gcodeData[axis][gcodeData[axis].length - 1] = value;
+
+				}
+			}
+		}
+
+		// console.log(gcodeData);
+
+		this.parseData(gcodeData);
+
+	},
+
+	parseData(gcodeData) {
+
+		let outputStr = '';
+		let laserData = {
+			x: [],
+			y: [],
+			laser: []
+		}
+		let laserFlag = false;
+
+		for (let i = 0; i < gcodeData.x.length; i++) {
+
+			for (let key in gcodeData) {
+
+				if ({}.hasOwnProperty.call(gcodeData, key)) {
+					outputStr += `${gcodeData[key][i]}${key === 'z' ? '\n' : '\t'}`;
+
+				}
+
+			}
+
+		}
+
+		for (let i = 0; i < gcodeData.z.length; i++) {
+
+			if (!gcodeData.z[i] || laserFlag) {
+
+				laserData.x.push(gcodeData.x[i]);
+				laserData.y.push(gcodeData.y[i]);
+				laserData.laser.push(gcodeData.z[i] ? 0 : 1);
+
+				laserFlag = true;
+
+			}
+
+		}
+
+		laserData.x.push(laserData.x[0]);
+		laserData.y.push(laserData.y[0]);
+		laserData.laser.push(0);
+
+		// console.log(outputStr);
+
+		this.plotTestData(laserData);
+
+	},
+
+	fileSaveDialog() {
+
+		if (this.lastOpenFileDialogTime && Date.now() - this.lastOpenFileDialogTime < 1000) return;
+		this.lastOpenFileDialogTime = Date.now();
+
+		const saveOptions = {
+			title: 'Save an Image',
+			filters: [
+				{ name: 'Images', extensions: [ 'jpg', 'png', 'gif' ] }
+			]
+		};
+
+		ipc.send('save-dialog', saveOptions);
+
+		ipc.on('saved-file', (event, path) => {
+
+			if (!path) path = 'No file selected.';
+			console.log(`Save path selected: ${path}`);
+
+		});
+
+	},
+
+	plotTestData(laserData) {
+
+		console.log(laserData);
+
+		let laserOnTrace = {
+			x: [],
+			y: [],
+			z: [],
+			mode: 'lines',
+			marker: {
+				color: '#9467bd',
+				size: 12,
+				symbol: 'circle',
+				line: {
+					color: 'rgb(0,0,0)',
+					width: 0
+				}
+			},
+			line: {
+				color: 'rgb(44, 160, 44)',
+				width: 2
+			},
+			type: 'scatter3d'
+		};
+
+		let laserOffTrace = {
+			x: [ 0, 0, 650 ],
+			y: [ 0, 650, 650 ],
+			z: [ 10, 10, 10 ],
+			mode: 'lines',
+			marker: {
+				color: '#1f77b4',
+				size: 12,
+				symbol: 'circle',
+				line: {
+					color: 'rgb(0,0,0)',
+					width: 0
+				}
+			},
+			line: {
+				color: '#1f77b4',
+				width: 0
+			},
+			type: 'scatter3d'
+		};
+
+		let prevLaser = 0;
+
+		for (let i = 0; i < laserData.laser.length; i++) {
+
+			laserOnTrace.x.push(laserData.x[i]);
+			laserOnTrace.y.push(laserData.y[i]);
+			// If the laser is on.
+			if (laserData.laser[i]) {
+
+				laserOnTrace.z.push(1);
+
+			} else {
+
+				laserOnTrace.z.push(0);
+
+			}
+
+		}
+
+		let data = [ laserOffTrace, laserOnTrace ];
+
+		let layout = {
+			// title: 'Laser Projection',
+			autosize: false,
+			showlegend: false,
+			width: 650,
+			height: 650,
+			margin: {
+				l: 20,
+				r: 20,
+				b: 10,
+				t: 5
+			}
+		};
+
+		Plotly.newPlot('myDiv', data, layout);
+
 	}
+
 
 })  /* arrow-function */
 );	/* define */

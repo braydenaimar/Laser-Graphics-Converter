@@ -9,13 +9,14 @@
  *  @author Brayden Aimar
  */
 
-/* eslint-disable no-undef */
+/* eslint-disable no-undef, global-require */
 
 define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 	console.log('running main.js');
 	console.log('global:', global);
 
+	Plotly = require('./js/lib/plotly.min.js');
 	CSON = require('cson');
 	fsCSON = require('fs-cson');
 	fs = require('fs');
@@ -24,7 +25,7 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 	// The ipc module aLlows for communication between the main and render processes.
 	electron = require('electron');
-	({ ipcRenderer: ipc } = electron);
+	({ ipcRenderer: ipc, dialog } = electron);
 
 	// TODO: Clean up the way amplify is imported cuz it is also in module exports.
 	publish = amplify.publish;
@@ -43,6 +44,8 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 	// Keyboard shortcuts for use throughout the program.
 	Mousetrap.bind('ctrl+pageup', () => publish('keyboard-shortcut', 'ctrl+pageup'));
 	Mousetrap.bind('ctrl+pagedown', () => publish('keyboard-shortcut', 'ctrl+pagedown'));
+	Mousetrap.bind('ctrl+o', () => publish('keyboard-shortcut', 'ctrl+o'));  // Conversion Widget: Open a file
+	Mousetrap.bind('ctrl+s', () => publish('keyboard-shortcut', 'ctrl+s'));  // Conversion Widget: Save a file
 
 	// Store information about the system.
 	hostMeta = {
@@ -255,8 +258,8 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 	// WorkSpace.
 	ws = {
 		id: 'main',
-		name: 'CNC Interface',
-		desc: 'Setting the ground-work for the future of modern CNC user interface software.',
+		name: 'Laser Graphics Converter',
+		desc: 'Convert Gcode into laser graphics.',
 		publish: {
 			'/all-widgets-loaded': 'This gets called once all widgets have ran their initBody() functions. Widgets can wait for this signal to know when  to start doing work, preventing missed publish calls if some widgets take longer to load than others.',
 			'/widget-resize': '',
@@ -428,11 +431,10 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 	createWidgetContainer = function (wgt) {
 
-		// append a div container to dom body
+		// Append a div container to dom body.
 		console.log('  Creating widget DOM container');
 
-		const containerHtml = `<div id="${wgt}" class="widget-container hidden"></div>`;
-		$('body').append(containerHtml);
+		$('body').append(`<div id="${wgt}" class="widget-container hidden"></div>`);
 
 	};
 
@@ -444,10 +446,15 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 			requirejs([ wgt ], (ref) => {
 
-				ref.loadHtml = widget[wgt].loadHtml;
-				ref.sidebarBtn = widget[wgt].sidebarBtn;
+				const { loadHtml, sidebarBtn } = widget[wgt];
+
+				// ref.loadHtml = widget[wgt].loadHtml;
+				// ref.sidebarBtn = widget[wgt].sidebarBtn;
 
 				widget[wgt] = ref;
+
+				widget[wgt].loadHtml = loadHtml;
+				widget[wgt].sidebarBtn = sidebarBtn;
 
 				ref.initBody();
 
@@ -463,9 +470,15 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 		requirejs([ wgt ], (ref) => {
 
-			ref.loadHtml = widget[wgt].loadHtml;
-			ref.sidebarBtn = widget[wgt].sidebarBtn;
+			const { loadHtml, sidebarBtn } = widget[wgt];
+
+			// ref.loadHtml = widget[wgt].loadHtml;
+			// ref.sidebarBtn = widget[wgt].sidebarBtn;
+
 			widget[wgt] = ref;
+
+			widget[wgt].loadHtml = loadHtml;
+			widget[wgt].sidebarBtn = sidebarBtn;
 
 			ref.initBody();
 
@@ -517,7 +530,8 @@ define([ 'jquery', 'gui', 'amplify', 'mousetrap' ], ($) => {
 
 	makeWidgetVisible = function (wgt) {
 
-		console.log(`Widget visible: ${wgt}`);
+		// console.log(`Widget visible: ${wgt}`);
+
 		// If wgt is already visible, do nothing.
 		if (wgt === wgtVisible) return;
 		// console.log("  wgt: " + wgt + "\n  wgtVisible: " + wgtVisible);

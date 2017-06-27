@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 
 requirejs.config({
 	baseUrl: 'js',

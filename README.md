@@ -40,7 +40,7 @@ Windows Firewall may pop-up with a security alert but you just need to click `Al
 
 If you are having issues, you may need to add the program to the list of exclusions for Windows Defender.
 
-#### Windows Defender Exclusion (**does not work with Windows 10 Creators Update)
+#### Windows Defender Exclusion (**following steps do not apply to Windows 10 Creators Update)**
 
 1. Select `Start` and `Settings` to open the settings window.
 2. Select `Update & Security`.
@@ -56,7 +56,7 @@ Running the Program
 ### Using File Explorer
 
 1. Open Windows File Explorer.
-2. Goto where you installed the program (in your 'Documents' folder if you followed the above instructions).
+2. Go to where you installed the program (in your 'Documents' folder if you followed the above instructions).
 3. Open the 'Laser-Graphics-Converter' folder.
 4. Double click 'autostart.bat' to run the program.
 

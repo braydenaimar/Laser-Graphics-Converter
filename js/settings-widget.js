@@ -9,7 +9,7 @@
  *  @author Brayden Aimar
  */
 
- 
+
 define([ 'jquery' ], $ => ({
 
 	id: 'settings-widget',
@@ -55,7 +55,6 @@ define([ 'jquery' ], $ => ({
 
 		$.each(this.widgetDom, (panelIndex, panel) => {
 
-			// console.log("  panelIndex:", panelIndex, "\n  panel:", panel);
 			marginSpacing += Number($(`#${that.id} .${panel}`).css('margin-top').replace(/px/g, ''));
 
 			if (panelIndex === that.widgetDom.length - 1) {

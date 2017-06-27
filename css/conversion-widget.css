@@ -1,1 +1,5 @@
 /* Conversion Widget CSS */
+
+.conversion-panel .panel-body {
+    padding: 8px;
+}

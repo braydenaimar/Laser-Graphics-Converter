@@ -2,8 +2,8 @@
 
 // TODO: Put in a gcode reference table for M-commands, G-commands and their modifiers.
 
-define(['jquery'], function($) {
-return { // eslint-disable-line indent
+define([ 'jquery' ], $ => ({
+
 	id: 'help-widget',
 	name: 'Help',
 	shortName: null,
@@ -24,54 +24,70 @@ return { // eslint-disable-line indent
 	widgetDom: [],
 	widgetVisible: false,
 
-	initBody: function() {
-		console.group(this.name + '.initBody()');
+	initBody() {
 
-		$(`#${this.id} div.jumbotron p`).on('click', 'a.btn', function(evt) {
-			const evtSignal = $(this).attr('evt-signal');
-
-			if (evtSignal === 'open-dev-tools') {
-				ipc.send('open-dev-tools');
-			}
-		});
+		console.group(`${this.name}.initBody()`);
 
 		subscribe('/main/window-resize', this, this.resizeWidgetDom.bind(this));
 		subscribe('/main/widget-visible', this, this.visibleWidget.bind(this));
 
 		publish('/main/widget-loaded', this.id);
+
+		return true;
+
 	},
-	resizeWidgetDom: function() {
-		// console.log("Resize " + this.id + " window");
+	resizeWidgetDom() {
+
 		if (!this.widgetVisible) return false;
-		var that = this;
-		var containerHeight = $('#' + this.id).height();
-		// console.log("containerHeight: " + containerHeight);
-		var marginSpacing = 0;
-		var panelSpacing = 0;
 
-		$.each(this.widgetDom, function(panelIndex, panel) {
-			// console.log("  panelIndex:", panelIndex, "\n  panel:", panel);
-			marginSpacing += Number($('#' + that.id + ' .' + panel).css('margin-top').replace(/px/g, ''));
+		const that = this;
+		const containerHeight = $(`#${this.id}`).height();
 
-			if (panelIndex == that.widgetDom.length -1) {
-				marginSpacing += Number($('#' + that.id + ' .' + panel).css('margin-bottom').replace(/px/g, ''));
-				var panelHeight = containerHeight - (marginSpacing + panelSpacing);
-				$('#' + that.id + ' .' + panel).css({'height': (panelHeight) + 'px'});
-				// console.log("    panelHeight: " + panelHeight);
+		let marginSpacing = 0;
+		let panelSpacing = 0;
+
+		$.each(this.widgetDom, (panelIndex, panel) => {
+
+			marginSpacing += Number($(`#${that.id} .${panel}`).css('margin-top').replace(/px/g, ''));
+
+			if (panelIndex === that.widgetDom.length - 1) {
+
+				marginSpacing += Number($(`#${that.id} .${panel}`).css('margin-bottom').replace(/px/g, ''));
+
+				const panelHeight = containerHeight - (marginSpacing + panelSpacing);
+
+				$(`#${that.id} .${panel}`).css({ height: `${panelHeight}px` });
+
 			} else {
-				panelSpacing += Number($('#' + that.id + ' .' + panel).css('height').replace(/px/g, ''));
+
+				panelSpacing += Number($(`#${that.id} .${panel}`).css('height').replace(/px/g, ''));
+
 			}
+
 		});
+
+		return true;
+
 	},
-	visibleWidget: function(wgtVisible, wgtHidden) {
-		if (wgtVisible == this.id) {
-			console.log(this.id + ' is now visible.');
+	visibleWidget(wgtVisible, wgtHidden) {
+
+		// If this widget is active, set the widgetVisible flag.
+		if (wgtVisible === this.id) {
+
 			this.widgetVisible = true;
+
 			this.resizeWidgetDom();
-		} else if (wgtHidden == this.id) {
-			console.log(this.id + ' is now hidden.');
+
+		// If this widget is hidden, clear the widgetVisible flag.
+		} else if (wgtHidden === this.id) {
+
 			this.widgetVisible = false;
+
 		}
+
+		return true;
+
 	}
-};
-});
+
+})  /* arrow-function */
+);	/* define */

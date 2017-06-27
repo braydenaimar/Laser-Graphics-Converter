@@ -17,7 +17,14 @@ app.on('browser-window-created', (e, window) => {
 
 });
 
+let indexOpenDialogTime = 0;
+
 ipc.on('open-dialog', (event, options) => {
+
+	if (indexOpenDialogTime && Date.now() - indexOpenDialogTime < 1000) return;
+	indexOpenDialogTime = Date.now();
+
+	console.log('Showing File Open Dialog.');
 
 	dialog.showOpenDialog(options, (filename) => {
 
@@ -28,6 +35,8 @@ ipc.on('open-dialog', (event, options) => {
 });
 
 ipc.on('save-dialog', (event, options) => {
+
+	console.log('Showing File Save Dialog.');
 
 	dialog.showSaveDialog(options, (filename) => {
 
@@ -49,8 +58,8 @@ app.on('ready', () => {
 
 		win = new BrowserWindow({
 			// show: false,
-			width: 980,
-			height: 620,
+			width: 990,
+			height: 810,
 			// fullscreen: true,
 			// kiosk: true,
 			// frame: false,
@@ -62,15 +71,14 @@ app.on('ready', () => {
 			icon: `${__dirname}/icon.ico`
 		});
 
-	// If not running on Brayden's laptop, open the program in deployment mode.
-	} else {
+	} else {  // If not running on Brayden's laptop, open the program in deployment mode.
 
 		console.log('Opening in deployment mode.');
 
 		win = new BrowserWindow({
 			// show: false,
-			width: 980,
-			height: 620,
+			width: 990,
+			height: 810,
 			// fullscreen: true,
 			// kiosk: true,
 			// frame: false,
